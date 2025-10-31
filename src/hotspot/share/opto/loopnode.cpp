@@ -4497,12 +4497,12 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
     BasicType xor_bt = xor_node->Opcode() == Op_XorI ? T_INT : T_LONG;
     jlong xor_const = xor_node->in(2)->get_integer_as_long(xor_bt);
     
-    // Check if the constant is -1 (all bits set), which is the pattern we're looking for
-    // For int: -1 = 0xFFFFFFFF, for long: -1 = 0xFFFFFFFFFFFFFFFF
-    bool is_all_ones = (xor_bt == T_INT && xor_const == -1) || 
-                       (xor_bt == T_LONG && xor_const == -1L);
+    // Check if the constant is -1 (all bits set) or 1 (for boolean toggle)
+    // For int: -1 = 0xFFFFFFFF or 1 for boolean, for long: -1 = 0xFFFFFFFFFFFFFFFF or 1
+    bool is_valid_xor_const = (xor_bt == T_INT && (xor_const == -1 || xor_const == 1)) || 
+                              (xor_bt == T_LONG && (xor_const == -1L || xor_const == 1L));
     
-    if (!is_all_ones) {
+    if (!is_valid_xor_const) {
       continue;
     }
 
@@ -4528,7 +4528,7 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
     }
 #endif
 
-    // Transform: result = init2 ^ (trip_count & 1)
+    // Transform: result = init2 ^ ((trip_count & 1) ? xor_const : 0)
     // trip_count = limit - init = limit (since init is 0)
     Node* init2 = phi2->in(LoopNode::EntryControl);
     Node* limit = cl->limit();
@@ -4539,16 +4539,34 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
     _igvn.register_new_node_with_optimizer(and_node, limit);
     set_early_ctrl(and_node, false);
     
-    // Convert to the target type if needed
-    Node* and_converted = insert_convert_node_if_needed(xor_bt, and_node);
+    // For XOR with constant c, the result after n iterations is:
+    // - init2 ^ (c * (n & 1))
+    // - For c = 1: init2 ^ (n & 1)
+    // - For c = -1: init2 ^ ((n & 1) ? -1 : 0) = init2 ^ (-(n & 1))
+    
+    Node* xor_value;
+    if (xor_const == 1 || xor_const == 1L) {
+      // Simple case: XOR with 1, just use (limit & 1)
+      xor_value = insert_convert_node_if_needed(xor_bt, and_node);
+    } else {
+      // XOR with -1: need to negate (limit & 1) to get either 0 or -1
+      // This is: 0 - (limit & 1) = -(limit & 1)
+      Node* zero_const = xor_bt == T_INT ? (Node*)_igvn.intcon(0) : (Node*)_igvn.longcon(0L);
+      Node* and_converted = insert_convert_node_if_needed(xor_bt, and_node);
+      xor_value = xor_bt == T_INT ? 
+                  (Node*)new SubINode(zero_const, and_converted) :
+                  (Node*)new SubLNode(zero_const, and_converted);
+      _igvn.register_new_node_with_optimizer(xor_value);
+      set_early_ctrl(xor_value, false);
+    }
     
     // Convert init2 to the target type if needed  
     Node* init2_converted = insert_convert_node_if_needed(xor_bt, init2);
     
-    // Create: init2 ^ (limit & 1)
+    // Create: init2 ^ xor_value
     Node* final_xor = xor_bt == T_INT ? 
-                      (Node*)new XorINode(init2_converted, and_converted) :
-                      (Node*)new XorLNode(init2_converted, and_converted);
+                      (Node*)new XorINode(init2_converted, xor_value) :
+                      (Node*)new XorLNode(init2_converted, xor_value);
     _igvn.register_new_node_with_optimizer(final_xor);
     set_early_ctrl(final_xor, false);
     
