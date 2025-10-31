@@ -4449,6 +4449,118 @@ void PhaseIdealLoop::replace_parallel_iv(IdealLoopTree *loop) {
   }
 }
 
+//---------------------------replace_xor_parallel_iv---------------------------
+// Replace XOR-based parallel induction variables
+// This optimization recognizes patterns like:
+//
+//    bool result = init;
+//    for (int iv = 0; iv < n; iv += 1) {
+//      result = result ^ true;  // or result ^ -1 for integers
+//    }
+//
+// and transforms it to:
+//
+//    result = init ^ (n & 1)
+//
+// This is based on the mathematical property that XORing with -1 (or true)
+// n times is equivalent to: init * ((-1)^n) = init ^ (n & 1)
+//
+void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
+  assert(loop->_head->is_CountedLoop(), "");
+  CountedLoopNode *cl = loop->_head->as_CountedLoop();
+  if (!cl->is_valid_counted_loop(T_INT)) {
+    return;         // skip malformed counted loop
+  }
+  Node *phi = cl->phi();
+  
+  // Visit all children, looking for Phis that are XORed with a constant
+  for (DUIterator i = cl->outs(); cl->has_out(i); i++) {
+    Node *out = cl->out(i);
+    // Look for other phis (secondary IVs). Skip dead ones
+    if (!out->is_Phi() || out == phi || !has_node(out)) {
+      continue;
+    }
+
+    PhiNode* phi2 = out->as_Phi();
+    Node* xor_node = phi2->in(LoopNode::LoopBackControl);
+    
+    // Look for XOR pattern: phi2 ^ constant
+    if (phi2->region() != loop->_head ||
+        xor_node->req() != 3 ||
+        xor_node->in(1) != phi2 ||
+        (xor_node->Opcode() != Op_XorI && xor_node->Opcode() != Op_XorL) ||
+        !xor_node->in(2)->is_Con()) {
+      continue;
+    }
+
+    // Get the XOR constant
+    BasicType xor_bt = xor_node->Opcode() == Op_XorI ? T_INT : T_LONG;
+    jlong xor_const = xor_node->in(2)->get_integer_as_long(xor_bt);
+    
+    // Check if the constant is -1 (all bits set), which is the pattern we're looking for
+    // For int: -1 = 0xFFFFFFFF, for long: -1 = 0xFFFFFFFFFFFFFFFF
+    bool is_all_ones = (xor_bt == T_INT && xor_const == -1) || 
+                       (xor_bt == T_LONG && xor_const == -1L);
+    
+    if (!is_all_ones) {
+      continue;
+    }
+
+    // Check if the loop starts at 0 and increments by 1
+    // This simplifies the transformation
+    Node* init = cl->init_trip();
+    jlong stride_con = cl->stride_con();
+    
+    if (stride_con != 1) {
+      continue; // Only handle stride of 1 for now
+    }
+    
+    // Check if init is 0
+    const TypeInt* init_t = _igvn.type(init)->isa_int();
+    if (init_t == nullptr || !init_t->is_con() || init_t->get_con() != 0) {
+      continue; // Only handle init of 0 for now
+    }
+
+#ifndef PRODUCT
+    if (TraceLoopOpts) {
+      tty->print("XOR Parallel IV: %d ", phi2->_idx);
+      loop->dump_head();
+    }
+#endif
+
+    // Transform: result = init2 ^ (trip_count & 1)
+    // trip_count = limit - init = limit (since init is 0)
+    Node* init2 = phi2->in(LoopNode::EntryControl);
+    Node* limit = cl->limit();
+    
+    // Create: limit & 1
+    Node* one_const = _igvn.intcon(1);
+    Node* and_node = new AndINode(limit, one_const);
+    _igvn.register_new_node_with_optimizer(and_node, limit);
+    set_early_ctrl(and_node, false);
+    
+    // Convert to the target type if needed
+    Node* and_converted = insert_convert_node_if_needed(xor_bt, and_node);
+    
+    // Convert init2 to the target type if needed  
+    Node* init2_converted = insert_convert_node_if_needed(xor_bt, init2);
+    
+    // Create: init2 ^ (limit & 1)
+    Node* final_xor = xor_bt == T_INT ? 
+                      (Node*)new XorINode(init2_converted, and_converted) :
+                      (Node*)new XorLNode(init2_converted, and_converted);
+    _igvn.register_new_node_with_optimizer(final_xor);
+    set_early_ctrl(final_xor, false);
+    
+    _igvn.replace_node(phi2, final_xor);
+    // Sometimes an induction variable is unused
+    if (final_xor->outcnt() == 0) {
+      _igvn.remove_dead_node(final_xor);
+    }
+    --i; // deleted this phi; rescan starting with next position
+  }
+}
+
 Node* PhaseIdealLoop::insert_convert_node_if_needed(BasicType target, Node* input) {
   BasicType source = _igvn.type(input)->basic_type();
   if (source == target) {
@@ -4517,6 +4629,9 @@ void IdealLoopTree::counted_loop( PhaseIdealLoop *phase ) {
 
     // Look for induction variables
     phase->replace_parallel_iv(this);
+    
+    // Look for XOR-based induction variables
+    phase->replace_xor_parallel_iv(this);
   } else if (_head->is_LongCountedLoop() ||
              phase->is_counted_loop(_head, loop, T_LONG)) {
     remove_safepoints(phase, true);
