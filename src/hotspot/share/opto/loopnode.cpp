@@ -4483,6 +4483,12 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
     return;         // skip malformed counted loop
   }
   Node *phi = cl->phi();
+
+#ifndef PRODUCT
+  if (TraceLoopOpts) {
+    tty->print("replace_xor_parallel_iv: checking loop %d\n", cl->_idx);
+  }
+#endif
   
   // Visit all children, looking for Phis that are XORed with a constant
   for (DUIterator i = cl->outs(); cl->has_out(i); i++) {
@@ -4495,10 +4501,27 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
     PhiNode* phi2 = out->as_Phi();
     Node* xor_node = phi2->in(LoopNode::LoopBackControl);
     
+#ifndef PRODUCT
+    if (TraceLoopOpts) {
+      tty->print("  Found phi %d, checking backedge\n", phi2->_idx);
+    }
+#endif
+    
     // Check for null before using xor_node
     if (xor_node == nullptr) {
+#ifndef PRODUCT
+      if (TraceLoopOpts) {
+        tty->print("    Backedge is null, skipping\n");
+      }
+#endif
       continue;
     }
+    
+#ifndef PRODUCT
+    if (TraceLoopOpts) {
+      tty->print("    Backedge node %d, opcode %d\n", xor_node->_idx, xor_node->Opcode());
+    }
+#endif
     
     // Look for XOR pattern: phi2 ^ constant
     // XOR is commutative, so check both input orders
@@ -4508,6 +4531,12 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
     if (phi2->region() != loop->_head ||
         xor_node->req() != 3 ||
         (xor_node->Opcode() != Op_XorI && xor_node->Opcode() != Op_XorL)) {
+#ifndef PRODUCT
+      if (TraceLoopOpts) {
+        tty->print("    Pattern check failed: region=%d head=%d, req=%d, opcode=%d\n",
+                   phi2->region()->_idx, loop->_head->_idx, xor_node->req(), xor_node->Opcode());
+      }
+#endif
       continue;
     }
     
