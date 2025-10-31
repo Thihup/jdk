@@ -39,10 +39,12 @@ public class TestXorParallelIV {
     }
 
     // Test the classic isEven pattern from the problem statement
-    // This should be optimized to: return (number & 1) == 0
+    // This should be optimized to eliminate the loop when the optimization is enabled
+    // The loop should be replaced with: return (number & 1) != 0 (since we start with true and toggle)
     @Test
     @IR(failOn = {IRNode.COUNTED_LOOP})
     public boolean testIsEven(int number) {
+        if (number < 0) return true; // Guard against negative numbers
         boolean even = true;
         for (int i = 0; i < number; i++) {
             even = !even;
@@ -54,6 +56,7 @@ public class TestXorParallelIV {
     @Test
     @IR(failOn = {IRNode.COUNTED_LOOP})
     public int testIntXor(int n) {
+        if (n < 0) return 1; // Guard against negative numbers
         int result = 1;
         for (int i = 0; i < n; i++) {
             result = result ^ -1;
@@ -65,6 +68,7 @@ public class TestXorParallelIV {
     @Test
     @IR(failOn = {IRNode.COUNTED_LOOP})
     public long testLongXor(int n) {
+        if (n < 0) return 1L; // Guard against negative numbers
         long result = 1L;
         for (int i = 0; i < n; i++) {
             result = result ^ -1L;
@@ -83,17 +87,17 @@ public class TestXorParallelIV {
     public void runIsEven() {
         boolean result1 = testIsEven(10);
         if (!result1) {
-            throw new RuntimeException("Expected true for 10, got " + result1);
+            throw new RuntimeException("Expected true for 10 (even toggles = true), got " + result1);
         }
         
         boolean result2 = testIsEven(11);
         if (result2) {
-            throw new RuntimeException("Expected false for 11, got " + result2);
+            throw new RuntimeException("Expected false for 11 (odd toggles = false), got " + result2);
         }
         
         boolean result3 = testIsEven(0);
         if (!result3) {
-            throw new RuntimeException("Expected true for 0, got " + result3);
+            throw new RuntimeException("Expected true for 0 (no toggles = true), got " + result3);
         }
     }
 
