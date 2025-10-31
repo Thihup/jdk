@@ -2048,6 +2048,7 @@ const Type* SqrtHFNode::Value(PhaseGVN* phase) const {
 
 //------------------------------Value------------------------------------------
 // Compute reciprocal sqrt
+// Note: rsqrtss provides an approximation, not an exact result
 const Type* RSqrtFNode::Value(PhaseGVN* phase) const {
   const Type *t1 = phase->type( in(1) );
   if( t1 == Type::TOP ) return Type::TOP;
@@ -2055,15 +2056,6 @@ const Type* RSqrtFNode::Value(PhaseGVN* phase) const {
   float f = t1->getf();
   if( f < 0.0f ) return Type::FLOAT;
   return TypeF::make( (float)(1.0 / sqrt( (double)f )) );
-}
-
-const Type* RSqrtDNode::Value(PhaseGVN* phase) const {
-  const Type *t1 = phase->type( in(1) );
-  if( t1 == Type::TOP ) return Type::TOP;
-  if( t1->base() != Type::DoubleCon ) return Type::DOUBLE;
-  double d = t1->getd();
-  if( d < 0.0 ) return Type::DOUBLE;
-  return TypeD::make( 1.0 / sqrt( d ) );
 }
 
 static const Type* reverse_bytes(int opcode, const Type* con) {

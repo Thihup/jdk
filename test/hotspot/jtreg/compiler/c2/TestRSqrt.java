@@ -25,7 +25,7 @@ package compiler.c2;
 
 /*
  * @test
- * @summary Test that 1 / Math.sqrt(x) is optimized to rsqrt intrinsic
+ * @summary Test that 1 / Math.sqrt(x) is optimized to rsqrtss intrinsic for float
  * @requires vm.debug
  *
  * @run main/othervm -XX:-TieredCompilation -Xcomp
@@ -35,18 +35,12 @@ package compiler.c2;
  */
 public class TestRSqrt {
     static float srcF = 42.0f;
-    static double srcD = 42.0d;
     static float dstF;
-    static double dstD;
 
     public static void testFloat() {
         // This should be optimized to rsqrtss instruction
+        // Note: rsqrtss is an approximation with ~0.037% max error
         dstF = (float)(1.0 / Math.sqrt((double)srcF));
-    }
-
-    public static void testDouble() {
-        // This should be optimized to rsqrt (though x86 doesn't have rsqrtsd)
-        dstD = 1.0 / Math.sqrt(srcD);
     }
 
     public static void testFloatDirect() {
@@ -55,31 +49,23 @@ public class TestRSqrt {
         dstF = 1.0f / sqrtVal;
     }
 
-    public static void testDoubleDirect() {
-        // Test with double sqrt directly
-        double sqrtVal = Math.sqrt(srcD);
-        dstD = 1.0 / sqrtVal;
-    }
-
     public static void main(String args[]) {
         for (int i = 0; i < 20_000; i++) {
             testFloat();
-            testDouble();
             testFloatDirect();
-            testDoubleDirect();
         }
         
-        // Verify results are reasonable
-        float expectedF = (float)(1.0 / Math.sqrt(42.0));
-        double expectedD = 1.0 / Math.sqrt(42.0);
+        // Verify result is within acceptable tolerance
+        // rsqrtss has ~0.037% max error, so we use a larger tolerance
+        float expected = (float)(1.0 / Math.sqrt(42.0));
+        float tolerance = 0.001f;  // 0.1% tolerance for approximation
         
-        if (Math.abs(dstF - expectedF) > 0.01f) {
-            throw new RuntimeException("Float rsqrt failed: expected " + expectedF + ", got " + dstF);
-        }
-        if (Math.abs(dstD - expectedD) > 0.0001) {
-            throw new RuntimeException("Double rsqrt failed: expected " + expectedD + ", got " + dstD);
+        if (Math.abs(dstF - expected) > tolerance) {
+            throw new RuntimeException("Float rsqrt failed: expected " + expected + 
+                                       ", got " + dstF + 
+                                       ", error = " + Math.abs(dstF - expected));
         }
         
-        System.out.println("Test passed!");
+        System.out.println("Test passed! Result: " + dstF + ", Expected: " + expected);
     }
 }

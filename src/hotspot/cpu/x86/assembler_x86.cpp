@@ -6982,15 +6982,6 @@ void Assembler::sqrtsd(XMMRegister dst, XMMRegister src) {
   emit_int16(0x51, (0xC0 | encode));
 }
 
-void Assembler::rsqrtsd(XMMRegister dst, XMMRegister src) {
-  // Note: There is no native x86 rsqrtsd instruction
-  // This is a placeholder for the IR node which may be expanded differently
-  InstructionAttr attributes(AVX_128bit, /* rex_w */ VM_Version::supports_evex(), /* legacy_mode */ false, /* no_mask_reg */ true, /* uses_vl */ false);
-  attributes.set_rex_vex_w_reverted();
-  int encode = simd_prefix_and_encode(dst, dst, src, VEX_SIMD_F2, VEX_OPCODE_0F, &attributes);
-  emit_int16(0x52, (0xC0 | encode));
-}
-
 void Assembler::sqrtsd(XMMRegister dst, Address src) {
   InstructionMark im(this);
   InstructionAttr attributes(AVX_128bit, /* rex_w */ VM_Version::supports_evex(), /* legacy_mode */ false, /* no_mask_reg */ true, /* uses_vl */ false);
@@ -6998,18 +6989,6 @@ void Assembler::sqrtsd(XMMRegister dst, Address src) {
   attributes.set_rex_vex_w_reverted();
   simd_prefix(dst, dst, src, VEX_SIMD_F2, VEX_OPCODE_0F, &attributes);
   emit_int8(0x51);
-  emit_operand(dst, src, 0);
-}
-
-void Assembler::rsqrtsd(XMMRegister dst, Address src) {
-  // Note: There is no native x86 rsqrtsd instruction
-  // This is a placeholder for the IR node which may be expanded differently
-  InstructionMark im(this);
-  InstructionAttr attributes(AVX_128bit, /* rex_w */ VM_Version::supports_evex(), /* legacy_mode */ false, /* no_mask_reg */ true, /* uses_vl */ false);
-  attributes.set_address_attributes(/* tuple_type */ EVEX_T1S, /* input_size_in_bits */ EVEX_64bit);
-  attributes.set_rex_vex_w_reverted();
-  simd_prefix(dst, dst, src, VEX_SIMD_F2, VEX_OPCODE_0F, &attributes);
-  emit_int8(0x52);
   emit_operand(dst, src, 0);
 }
 

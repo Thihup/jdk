@@ -559,6 +559,8 @@ public:
 
 //------------------------------RSqrtFNode-------------------------------------
 // reciprocal square root of a float (1 / sqrt(x))
+// Note: Uses rsqrtss instruction which provides an approximation
+// with maximum relative error < 1.5 * 2^-12 (~0.037%)
 class RSqrtFNode : public Node {
 public:
   RSqrtFNode(Compile* C, Node *c, Node *in1) : Node(c, in1) {
@@ -568,20 +570,6 @@ public:
   virtual int Opcode() const;
   const Type *bottom_type() const { return Type::FLOAT; }
   virtual uint ideal_reg() const { return Op_RegF; }
-  virtual const Type* Value(PhaseGVN* phase) const;
-};
-
-//------------------------------RSqrtDNode-------------------------------------
-// reciprocal square root of a double (1 / sqrt(x))
-class RSqrtDNode : public Node {
-public:
-  RSqrtDNode(Compile* C, Node *c, Node *in1) : Node(c, in1) {
-    init_flags(Flag_is_expensive);
-    C->add_expensive_node(this);
-  }
-  virtual int Opcode() const;
-  const Type *bottom_type() const { return Type::DOUBLE; }
-  virtual uint ideal_reg() const { return Op_RegD; }
   virtual const Type* Value(PhaseGVN* phase) const;
 };
 

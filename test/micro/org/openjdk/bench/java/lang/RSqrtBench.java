@@ -37,7 +37,8 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
 /**
- * Benchmark to compare performance of 1 / Math.sqrt(x) with and without rsqrt intrinsic
+ * Benchmark to compare performance of 1 / Math.sqrt(x) with and without rsqrtss intrinsic
+ * Note: This optimization only applies to float, not double (x86 has no rsqrtsd instruction)
  */
 @Warmup(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
@@ -50,31 +51,18 @@ public class RSqrtBench {
     @Param("0")
     public long seed;
 
-    private double[] doubleValues;
     private float[] floatValues;
     private static final int SIZE = 1024;
 
     @Setup
     public void setup() {
         Random random = new Random(seed);
-        doubleValues = new double[SIZE];
         floatValues = new float[SIZE];
         
         for (int i = 0; i < SIZE; i++) {
             // Generate positive values to avoid NaN from sqrt
-            doubleValues[i] = random.nextDouble() * 1000.0 + 1.0;
             floatValues[i] = (float)(random.nextDouble() * 1000.0 + 1.0);
         }
-    }
-
-    @Benchmark
-    public double rsqrtDouble() {
-        double sum = 0.0;
-        for (int i = 0; i < SIZE; i++) {
-            // This should be optimized to rsqrt intrinsic
-            sum += 1.0 / Math.sqrt(doubleValues[i]);
-        }
-        return sum;
     }
 
     @Benchmark
@@ -88,33 +76,12 @@ public class RSqrtBench {
     }
 
     @Benchmark
-    public double sqrtThenDivideDouble() {
-        double sum = 0.0;
-        for (int i = 0; i < SIZE; i++) {
-            // Baseline: separate sqrt and division
-            double sqrtVal = Math.sqrt(doubleValues[i]);
-            sum += 1.0 / sqrtVal;
-        }
-        return sum;
-    }
-
-    @Benchmark
     public float sqrtThenDivideFloat() {
         float sum = 0.0f;
         for (int i = 0; i < SIZE; i++) {
             // Baseline: separate sqrt and division
             float sqrtVal = (float)Math.sqrt((double)floatValues[i]);
             sum += 1.0f / sqrtVal;
-        }
-        return sum;
-    }
-
-    @Benchmark
-    public double sqrtOnlyDouble() {
-        double sum = 0.0;
-        for (int i = 0; i < SIZE; i++) {
-            // Baseline: just sqrt for comparison
-            sum += Math.sqrt(doubleValues[i]);
         }
         return sum;
     }
