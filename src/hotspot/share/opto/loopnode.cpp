@@ -4540,19 +4540,11 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
       continue;
     }
 
-    // Check if the loop starts at 0 and increments by 1
-    // This simplifies the transformation
-    Node* init = cl->init_trip();
+    // Check if the loop increments by 1
     jlong stride_con = cl->stride_con();
     
     if (stride_con != 1) {
       continue; // Only handle stride of 1 for now
-    }
-    
-    // Check if init is 0
-    const TypeInt* init_t = _igvn.type(init)->isa_int();
-    if (init_t == nullptr || !init_t->is_con() || init_t->get_con() != 0) {
-      continue; // Only handle init of 0 for now
     }
 
 #ifndef PRODUCT
@@ -4563,14 +4555,20 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
 #endif
 
     // Transform: result = init2 ^ ((trip_count & 1) ? xor_const : 0)
-    // trip_count = limit - init = limit (since init is 0)
+    // trip_count = limit - init
     Node* init2 = phi2->in(LoopNode::EntryControl);
     Node* limit = cl->limit();
+    Node* init = cl->init_trip();
     
-    // Create: limit & 1
+    // Compute trip_count = limit - init
+    Node* trip_count = new SubINode(limit, init);
+    _igvn.register_new_node_with_optimizer(trip_count, limit);
+    set_early_ctrl(trip_count, false);
+    
+    // Create: trip_count & 1
     Node* one_const = _igvn.intcon(1);
-    Node* and_node = new AndINode(limit, one_const);
-    _igvn.register_new_node_with_optimizer(and_node, limit);
+    Node* and_node = new AndINode(trip_count, one_const);
+    _igvn.register_new_node_with_optimizer(and_node, trip_count);
     set_early_ctrl(and_node, false);
     
     // For XOR with constant c, the result after n iterations is:
