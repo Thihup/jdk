@@ -4455,15 +4455,26 @@ void PhaseIdealLoop::replace_parallel_iv(IdealLoopTree *loop) {
 //
 //    bool result = init;
 //    for (int iv = 0; iv < n; iv += 1) {
-//      result = result ^ true;  // or result ^ -1 for integers
+//      result = result ^ true;  // or result ^ 1 for booleans
 //    }
 //
 // and transforms it to:
 //
 //    result = init ^ (n & 1)
 //
-// This is based on the mathematical property that XORing with -1 (or true)
-// n times is equivalent to: init * ((-1)^n) = init ^ (n & 1)
+// For integer XOR with -1:
+//    int result = init;
+//    for (int iv = 0; iv < n; iv += 1) {
+//      result = result ^ -1;
+//    }
+//
+// transforms to:
+//
+//    result = init ^ (-(n & 1))  // which is 0 if n is even, -1 if n is odd
+//
+// This is based on the mathematical property that:
+// - XOR with 1: init ^ 1 ^ 1 ^ ... (n times) = init ^ (n & 1)
+// - XOR with -1: init ^ -1 ^ -1 ^ ... (n times) = init ^ (n is odd ? -1 : 0) = init ^ (-(n & 1))
 //
 void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
   assert(loop->_head->is_CountedLoop(), "");
@@ -4484,6 +4495,11 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
     PhiNode* phi2 = out->as_Phi();
     Node* xor_node = phi2->in(LoopNode::LoopBackControl);
     
+    // Check for null before using xor_node
+    if (xor_node == nullptr) {
+      continue;
+    }
+    
     // Look for XOR pattern: phi2 ^ constant
     if (phi2->region() != loop->_head ||
         xor_node->req() != 3 ||
@@ -4498,9 +4514,8 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
     jlong xor_const = xor_node->in(2)->get_integer_as_long(xor_bt);
     
     // Check if the constant is -1 (all bits set) or 1 (for boolean toggle)
-    // For int: -1 = 0xFFFFFFFF or 1 for boolean, for long: -1 = 0xFFFFFFFFFFFFFFFF or 1
-    bool is_valid_xor_const = (xor_bt == T_INT && (xor_const == -1 || xor_const == 1)) || 
-                              (xor_bt == T_LONG && (xor_const == -1L || xor_const == 1L));
+    // The comparison works for both int and long due to sign extension
+    bool is_valid_xor_const = (xor_const == -1 || xor_const == 1);
     
     if (!is_valid_xor_const) {
       continue;
