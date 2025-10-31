@@ -6998,6 +6998,12 @@ void Assembler::sqrtss(XMMRegister dst, XMMRegister src) {
   emit_int16(0x51, (0xC0 | encode));
 }
 
+void Assembler::rsqrtss(XMMRegister dst, XMMRegister src) {
+  InstructionAttr attributes(AVX_128bit, /* rex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ true, /* uses_vl */ false);
+  int encode = simd_prefix_and_encode(dst, dst, src, VEX_SIMD_F3, VEX_OPCODE_0F, &attributes);
+  emit_int16(0x52, (0xC0 | encode));
+}
+
 void Assembler::std() {
   emit_int8((unsigned char)0xFD);
 }
@@ -7008,6 +7014,15 @@ void Assembler::sqrtss(XMMRegister dst, Address src) {
   attributes.set_address_attributes(/* tuple_type */ EVEX_T1S, /* input_size_in_bits */ EVEX_32bit);
   simd_prefix(dst, dst, src, VEX_SIMD_F3, VEX_OPCODE_0F, &attributes);
   emit_int8(0x51);
+  emit_operand(dst, src, 0);
+}
+
+void Assembler::rsqrtss(XMMRegister dst, Address src) {
+  InstructionMark im(this);
+  InstructionAttr attributes(AVX_128bit, /* rex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ true, /* uses_vl */ false);
+  attributes.set_address_attributes(/* tuple_type */ EVEX_T1S, /* input_size_in_bits */ EVEX_32bit);
+  simd_prefix(dst, dst, src, VEX_SIMD_F3, VEX_OPCODE_0F, &attributes);
+  emit_int8(0x52);
   emit_operand(dst, src, 0);
 }
 

@@ -2260,6 +2260,10 @@ private:
   void sqrtss(XMMRegister dst, Address src);
   void sqrtss(XMMRegister dst, XMMRegister src);
 
+  // Compute Reciprocal of Square Root of Scalar Single-Precision Floating-Point Value
+  void rsqrtss(XMMRegister dst, Address src);
+  void rsqrtss(XMMRegister dst, XMMRegister src);
+
   void std();
 
   void stmxcsr( Address dst );

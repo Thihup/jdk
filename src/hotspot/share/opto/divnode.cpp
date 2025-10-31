@@ -776,7 +776,16 @@ Node *DivFNode::Ideal(PhaseGVN *phase, bool can_reshape) {
   // Don't bother trying to transform a dead node
   if( in(0) && in(0)->is_top() )  return nullptr;
 
+  const Type *t1 = phase->type( in(1) );
   const Type *t2 = phase->type( in(2) );
+  
+  // Check for 1.0 / sqrt(x) pattern => rsqrt(x)
+  if (t1 == TypeF::ONE && in(2)->Opcode() == Op_SqrtF) {
+    // Transform 1.0 / sqrt(x) to rsqrt(x)
+    Node* sqrt_input = in(2)->in(1);
+    return new RSqrtFNode(phase->C, in(0), sqrt_input);
+  }
+  
   if( t2 == TypeF::ONE )         // Identity?
     return nullptr;              // Skip it
 
@@ -969,6 +978,11 @@ Node *DivDNode::Ideal(PhaseGVN *phase, bool can_reshape) {
   if( in(0) && in(0)->is_top() )  return nullptr;
 
   const Type *t2 = phase->type( in(2) );
+  
+  // Note: 1.0 / sqrt(x) optimization for double is not done because
+  // x86 does not have a hardware rsqrtsd instruction. The pattern
+  // would expand to sqrt + div which is no better than the original.
+  
   if( t2 == TypeD::ONE )         // Identity?
     return nullptr;              // Skip it
 

@@ -17894,6 +17894,18 @@ instruct sqrtD_reg(regD dst) %{
   ins_pipe(pipe_slow);
 %}
 
+// rsqrtss instruction for reciprocal square root of single-precision float
+// Note: rsqrtss provides an approximation with max relative error < 1.5 * 2^-12
+// For applications requiring IEEE 754 precision, use sqrt + div instead
+instruct rsqrtF_reg(regF dst) %{
+  match(Set dst (RSqrtF dst));
+  format %{ "rsqrtss $dst, $dst\t# approximate 1/sqrt" %}
+  ins_encode %{
+    __ rsqrtss($dst$$XMMRegister, $dst$$XMMRegister);
+  %}
+  ins_pipe(pipe_slow);
+%}
+
 instruct convF2HF_reg_reg(rRegI dst, vlRegF src, vlRegF tmp) %{
   effect(TEMP tmp);
   match(Set dst (ConvF2HF src));
