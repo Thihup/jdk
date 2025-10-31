@@ -17894,6 +17894,27 @@ instruct sqrtD_reg(regD dst) %{
   ins_pipe(pipe_slow);
 %}
 
+// rsqrtss instruction for reciprocal square root of single-precision float
+instruct rsqrtF_reg(regF dst) %{
+  match(Set dst (RSqrtF dst));
+  format %{ "rsqrtss $dst, $dst" %}
+  ins_encode %{
+    __ rsqrtss($dst$$XMMRegister, $dst$$XMMRegister);
+  %}
+  ins_pipe(pipe_slow);
+%}
+
+// Note: x86 does not have a native rsqrtsd instruction for double precision
+// This rule should not match in practice, but is included for completeness
+instruct rsqrtD_reg(regD dst) %{
+  match(Set dst (RSqrtD dst));
+  format %{ "rsqrtsd $dst, $dst" %}
+  ins_encode %{
+    __ rsqrtsd($dst$$XMMRegister, $dst$$XMMRegister);
+  %}
+  ins_pipe(pipe_slow);
+%}
+
 instruct convF2HF_reg_reg(rRegI dst, vlRegF src, vlRegF tmp) %{
   effect(TEMP tmp);
   match(Set dst (ConvF2HF src));

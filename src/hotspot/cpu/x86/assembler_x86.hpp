@@ -2253,12 +2253,20 @@ private:
   void sqrtsd(XMMRegister dst, Address src);
   void sqrtsd(XMMRegister dst, XMMRegister src);
 
+  // Compute Reciprocal of Square Root of Scalar Double-Precision Floating-Point Value
+  void rsqrtsd(XMMRegister dst, Address src);
+  void rsqrtsd(XMMRegister dst, XMMRegister src);
+
   void roundsd(XMMRegister dst, Address src, int32_t rmode);
   void roundsd(XMMRegister dst, XMMRegister src, int32_t rmode);
 
   // Compute Square Root of Scalar Single-Precision Floating-Point Value
   void sqrtss(XMMRegister dst, Address src);
   void sqrtss(XMMRegister dst, XMMRegister src);
+
+  // Compute Reciprocal of Square Root of Scalar Single-Precision Floating-Point Value
+  void rsqrtss(XMMRegister dst, Address src);
+  void rsqrtss(XMMRegister dst, XMMRegister src);
 
   void std();
 
