@@ -4501,17 +4501,36 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
     }
     
     // Look for XOR pattern: phi2 ^ constant
+    // XOR is commutative, so check both input orders
+    int phi_input_idx = -1;
+    int const_input_idx = -1;
+    
     if (phi2->region() != loop->_head ||
         xor_node->req() != 3 ||
-        xor_node->in(1) != phi2 ||
-        (xor_node->Opcode() != Op_XorI && xor_node->Opcode() != Op_XorL) ||
-        !xor_node->in(2)->is_Con()) {
+        (xor_node->Opcode() != Op_XorI && xor_node->Opcode() != Op_XorL)) {
+      continue;
+    }
+    
+    // Check which input is the phi and which is the constant
+    if (xor_node->in(1)->uncast() == phi2 && xor_node->in(2)->is_Con()) {
+      phi_input_idx = 1;
+      const_input_idx = 2;
+    } else if (xor_node->in(2)->uncast() == phi2 && xor_node->in(1)->is_Con()) {
+      phi_input_idx = 2;
+      const_input_idx = 1;
+    } else {
+      continue;  // Pattern doesn't match
+    }
+
+    if (xor_node->in(phi_input_idx)->is_ConstraintCast() &&
+        !(xor_node->in(phi_input_idx)->in(0)->is_IfProj() && xor_node->in(phi_input_idx)->in(0)->in(0)->is_RangeCheck())) {
+      // Skip XorI->CastII->Phi case if CastII is not controlled by local RangeCheck
       continue;
     }
 
     // Get the XOR constant
     BasicType xor_bt = xor_node->Opcode() == Op_XorI ? T_INT : T_LONG;
-    jlong xor_const = xor_node->in(2)->get_integer_as_long(xor_bt);
+    jlong xor_const = xor_node->in(const_input_idx)->get_integer_as_long(xor_bt);
     
     // Check if the constant is -1 (all bits set) or 1 (for boolean toggle)
     // The comparison works for both int and long due to sign extension
