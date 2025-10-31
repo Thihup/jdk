@@ -4632,6 +4632,11 @@ void PhaseIdealLoop::replace_xor_parallel_iv(IdealLoopTree *loop) {
     set_early_ctrl(final_xor, false);
     
     _igvn.replace_node(phi2, final_xor);
+#ifndef PRODUCT
+    if (TraceLoopOpts) {
+      tty->print("  Replaced phi %d with final_xor %d\n", phi2->_idx, final_xor->_idx);
+    }
+#endif
     // Sometimes an induction variable is unused
     if (final_xor->outcnt() == 0) {
       _igvn.remove_dead_node(final_xor);
