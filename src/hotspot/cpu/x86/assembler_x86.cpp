@@ -6335,6 +6335,14 @@ void Assembler::rep_mov() {
   emit_int24((unsigned char)0xF3, REX_W, (unsigned char)0xA5);
 }
 
+// copies rcx bytes from [rsi] to [rdi]
+// Optimized by FSRM (Fast Short REP MOVSB) on newer Intel CPUs
+void Assembler::rep_movsb() {
+  // REP
+  // MOVSB
+  emit_int16((unsigned char)0xF3, (unsigned char)0xA4);
+}
+
 // sets rcx bytes with rax, value at [edi]
 void Assembler::rep_stosb() {
   // REP
