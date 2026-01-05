@@ -715,6 +715,10 @@ address StubGenerator::generate_disjoint_copy_avx3_masked(StubId stub_id, addres
           }
           __ movq(temp4, temp2);         // move byte count into temp4(RCX).
           __ rep_movsb();
+          // temp2 already contains byte count, convert to type specific count.
+          if(shift) {
+            __ shrq(temp2, shift);       // type specific count.
+          }
         } else {
           // Use REP MOVSQ for quadword copies.
           if(shift < 3) {
@@ -723,11 +727,11 @@ address StubGenerator::generate_disjoint_copy_avx3_masked(StubId stub_id, addres
           __ movq(temp4 , temp2);        // move quad word count into temp4(RCX).
           __ rep_mov();
           __ shlq(temp2, 3);             // convert quad words into byte count.
+          if(shift) {
+            __ shrq(temp2, shift);       // type specific count.
+          }
         }
         
-        if(shift) {
-          __ shrq(temp2, shift);       // type specific count.
-        }
         // Restore original addresses in to/from.
         __ movq(to, temp3);
         __ movq(from, temp1);
