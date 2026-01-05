@@ -706,21 +706,38 @@ address StubGenerator::generate_disjoint_copy_avx3_masked(StubId stub_id, addres
         // Save to/from for restoration post rep_mov.
         __ movq(temp1, to);
         __ movq(temp3, from);
-        if(shift < 3) {
-          __ shrq(temp2, 3-shift);     // quad word count
+        
+        if (UseFSRM) {
+          // Use REP MOVSB when FSRM is available for optimal performance.
+          // FSRM (Fast Short REP MOVSB) provides better performance for byte-level copies.
+          if (shift) {
+            __ shlq(temp2, shift);       // convert to byte count
+          }
+          __ movq(temp4, temp2);         // move byte count into temp4(RCX).
+          __ rep_movsb();
+          // temp2 already contains byte count, convert to type specific count.
+          if(shift) {
+            __ shrq(temp2, shift);       // type specific count.
+          }
+        } else {
+          // Use REP MOVSQ for quadword copies.
+          if(shift < 3) {
+            __ shrq(temp2, 3-shift);     // quad word count
+          }
+          __ movq(temp4 , temp2);        // move quad word count into temp4(RCX).
+          __ rep_mov();
+          __ shlq(temp2, 3);             // convert quad words into byte count.
+          if(shift) {
+            __ shrq(temp2, shift);       // type specific count.
+          }
         }
-        __ movq(temp4 , temp2);        // move quad ward count into temp4(RCX).
-        __ rep_mov();
-        __ shlq(temp2, 3);             // convert quad words into byte count.
-        if(shift) {
-          __ shrq(temp2, shift);       // type specific count.
-        }
+        
         // Restore original addresses in to/from.
         __ movq(to, temp3);
         __ movq(from, temp1);
         __ movq(temp4, temp2);
         __ movq(temp1, count);
-        __ subq(temp1, temp2);         // tailing part (less than a quad ward size).
+        __ subq(temp1, temp2);         // trailing part (less than a quad word size).
         __ jmp(L_tail);
     }
 

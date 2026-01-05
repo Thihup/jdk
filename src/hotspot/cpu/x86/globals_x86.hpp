@@ -144,6 +144,9 @@ define_pd_global(intx, InitArrayShortSize, 8*BytesPerLong);
   product(bool, UseFastStosb, false,                                        \
           "Use fast-string operation for zeroing: rep stosb")               \
                                                                             \
+  product(bool, UseFSRM, false,                                             \
+          "Use Fast Short REP MOVSB for short array copies")                \
+                                                                            \
   /* assembler */                                                           \
   product(bool, UseCountLeadingZerosInstruction, false,                     \
           "Use count leading zeros instruction")                            \

@@ -1775,6 +1775,16 @@ void VM_Version::get_processor_features() {
     FLAG_SET_DEFAULT(UseFastStosb, false);
   }
 
+  // Use Fast Short REP MOVSB if available.
+  if (supports_fsrm()) {
+    if (FLAG_IS_DEFAULT(UseFSRM)) {
+      UseFSRM = true;
+    }
+  } else if (UseFSRM) {
+    warning("Fast Short REP MOVSB is not available on this CPU");
+    FLAG_SET_DEFAULT(UseFSRM, false);
+  }
+
   // For AMD Processors use XMM/YMM MOVDQU instructions
   // for Object Initialization as default
   if (is_amd() && cpu_family() >= 0x19) {

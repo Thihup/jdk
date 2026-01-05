@@ -1058,6 +1058,7 @@ private:
 
   // These do register sized moves/scans
   void rep_mov();
+  void rep_movsb();
   void rep_stos();
   void rep_stosb();
   void repne_scan();
