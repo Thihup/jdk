@@ -720,7 +720,7 @@ address StubGenerator::generate_disjoint_copy_avx3_masked(StubId stub_id, addres
           if(shift < 3) {
             __ shrq(temp2, 3-shift);     // quad word count
           }
-          __ movq(temp4 , temp2);        // move quad ward count into temp4(RCX).
+          __ movq(temp4 , temp2);        // move quad word count into temp4(RCX).
           __ rep_mov();
           __ shlq(temp2, 3);             // convert quad words into byte count.
         }
@@ -733,7 +733,7 @@ address StubGenerator::generate_disjoint_copy_avx3_masked(StubId stub_id, addres
         __ movq(from, temp1);
         __ movq(temp4, temp2);
         __ movq(temp1, count);
-        __ subq(temp1, temp2);         // tailing part (less than a quad ward size).
+        __ subq(temp1, temp2);         // tailing part (less than a quad word size).
         __ jmp(L_tail);
     }
 
